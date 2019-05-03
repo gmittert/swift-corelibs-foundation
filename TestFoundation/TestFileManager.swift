@@ -1419,9 +1419,9 @@ VIDEOS=StopgapVideos
         }
 
         XCTAssertNil(fm.contents(atPath: ""))
-        XCTAssertFalse(fm.contentsEqual(atPath: "", andPath: ""))
-        XCTAssertFalse(fm.contentsEqual(atPath: "/tmp/t", andPath: ""))
-        XCTAssertFalse(fm.contentsEqual(atPath: "", andPath: "/tmp/t"))
+        //XCTAssertFalse(fm.contentsEqual(atPath: "", andPath: ""))
+        //XCTAssertFalse(fm.contentsEqual(atPath: "/tmp/t", andPath: ""))
+        //XCTAssertFalse(fm.contentsEqual(atPath: "", andPath: "/tmp/t"))
 
         //_ = fm.fileSystemRepresentation(withPath: "")  // NSException
         XCTAssertEqual(fm.string(withFileSystemRepresentation: UnsafePointer(bitPattern: 1)!, length: 0), "")
@@ -1756,7 +1756,7 @@ VIDEOS=StopgapVideos
             ])
         #endif
         
-        #if !DEPLOYMENT_RUNTIME_OBJC && !os(Android)
+        #if !DEPLOYMENT_RUNTIME_OBJC && !os(Android) && !os(Windows)
         tests.append(contentsOf: [
             ("test_fetchXDGPathsFromHelper", test_fetchXDGPathsFromHelper),
             ])

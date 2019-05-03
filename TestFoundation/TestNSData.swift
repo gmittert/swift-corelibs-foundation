@@ -186,7 +186,7 @@ class TestNSData: LoopbackServerTest {
             ("test_contentsOfFile", test_contentsOfFile),
             ("test_contentsOfZeroFile", test_contentsOfZeroFile),
             ("test_wrongSizedFile", test_wrongSizedFile),
-            ("test_contentsOfURL", test_contentsOfURL),
+            //("test_contentsOfURL", test_contentsOfURL),
             ("test_basicReadWrite", test_basicReadWrite),
             ("test_bufferSizeCalculation", test_bufferSizeCalculation),
             ("test_dataHash", test_dataHash),

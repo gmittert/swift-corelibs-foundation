@@ -1116,7 +1116,7 @@ Boolean _CFTimeZoneInit(CFTimeZoneRef timeZone, CFStringRef name, CFDataRef data
     tzName = CFDictionaryGetValue(abbrevs, name);
     if (tzName == NULL) {
         CFDictionaryRef olson = CFTimeZoneCopyOlsonToWindowsDictionary();
-        tzName = CFDictionaryGetValue(olson, name);
+        //tzName = CFDictionaryGetValue(olson, name);
         CFRelease(olson);
     }
 
@@ -1318,7 +1318,7 @@ CFTimeZoneRef CFTimeZoneCreateWithName(CFAllocatorRef allocator, CFStringRef nam
     tzName = CFDictionaryGetValue(abbrevs, name);
     if (tzName == NULL) {
         CFDictionaryRef olson = CFTimeZoneCopyOlsonToWindowsDictionary();
-        tzName = CFDictionaryGetValue(olson, name);
+        //tzName = CFDictionaryGetValue(olson, name);
         CFRelease(olson);
     }
 

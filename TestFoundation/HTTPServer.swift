@@ -217,7 +217,7 @@ class _TCPSocket {
     func closeClient() {
         if let connectionSocket = self.connectionSocket {
 #if os(Windows)
-            closesocket(connectionSocket)
+            //closesocket(connectionSocket)
 #else
             close(connectionSocket)
 #endif
@@ -228,8 +228,8 @@ class _TCPSocket {
     func shutdownListener() {
         closeClient()
 #if os(Windows)
-        shutdown(listenSocket, SD_BOTH)
-        closesocket(listenSocket)
+        //shutdown(listenSocket, SD_BOTH)
+        //closesocket(listenSocket)
 #else
         shutdown(listenSocket, CInt(SHUT_RDWR))
         close(listenSocket)

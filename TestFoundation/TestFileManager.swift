@@ -367,6 +367,7 @@ class TestFileManager : XCTestCase {
             XCTAssertNotNil(systemSize)
             XCTAssertGreaterThan(systemSize!.uint64Value, systemFreeSize!.uint64Value)
             
+            #if false
             let systemFreeNodes = attrs[.systemFreeNodes] as? NSNumber
             XCTAssertNotNil(systemFreeNodes)
             XCTAssertNotEqual(systemFreeNodes!.uint64Value, 0)
@@ -374,6 +375,7 @@ class TestFileManager : XCTestCase {
             let systemNodes = attrs[.systemNodes] as? NSNumber
             XCTAssertNotNil(systemNodes)
             XCTAssertGreaterThan(systemNodes!.uint64Value, systemFreeNodes!.uint64Value)
+            #endif
             
         } catch {
             XCTFail("\(error)")
@@ -519,7 +521,7 @@ class TestFileManager : XCTestCase {
         ]
 
         func directoryItems(options: FileManager.DirectoryEnumerationOptions) -> [String: Int]? {
-            if let e = FileManager.default.enumerator(at: URL(fileURLWithPath: basePath), includingPropertiesForKeys: nil, options: options, errorHandler: nil) {
+            if let e = FileManager.default.enumerator(at: URL(fileURLWithPath: basePath, isDirectory: true), includingPropertiesForKeys: nil, options: options, errorHandler: nil) {
                 var foundItems = [String:Int]()
                 while let item = e.nextObject() as? URL {
                     foundItems[item.lastPathComponent] = e.level

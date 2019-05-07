@@ -118,7 +118,11 @@ extension String {
     }
 
     internal var absolutePath: Bool {
+#if os(Windows)
+        return !withCString(encodedAs: UTF16.self, PathIsRelativeW)
+#else
         return hasPrefix("~") || hasPrefix("/")
+#endif
     }
     
     internal func _stringByAppendingPathComponent(_ str: String, doneAppending : Bool = true) -> String {
@@ -345,7 +349,11 @@ extension NSString {
         
         let automount = "/var/automount"
         resolved = resolved._tryToRemovePathPrefix(automount) ?? resolved
+#if os(Windows)
+        return String(resolved.map { $0 == "\\" ? "/" : $0 })
+#else
         return resolved
+#endif
     }
     
     public var resolvingSymlinksInPath: String {

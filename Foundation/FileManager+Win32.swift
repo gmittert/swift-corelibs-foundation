@@ -652,7 +652,7 @@ extension FileManager {
         var _options : FileManager.DirectoryEnumerationOptions
         var _errorHandler : ((URL, Error) -> Bool)?
         var _stack: [URL]
-        var _current: URL?
+        var _current: URL
         var _rootDepth : Int
 
         init(url: URL, options: FileManager.DirectoryEnumerationOptions, errorHandler: (/* @escaping */ (URL, Error) -> Bool)?) {
@@ -660,6 +660,7 @@ extension FileManager {
             _errorHandler = errorHandler
             _stack = [url]
             _rootDepth = url.pathComponents.count
+            _current = url
         }
 
         override func nextObject() -> Any? {
@@ -690,6 +691,7 @@ extension FileManager {
                 return files
             }
             while let url = _stack.popLast() {
+                _current = url
                 if url.hasDirectoryPath && !_options.contains(.skipsSubdirectoryDescendants) {
                     guard let dirContents = contentsOfDir(directory: url)?.reversed() else {
                         if let handler = _errorHandler {
@@ -702,14 +704,13 @@ extension FileManager {
                     }
                     _stack.append(contentsOf: dirContents)
                 }
-                _current = url
                 return url
             }
             return nil
         }
 
         override var level: Int {
-            return _rootDepth - (_current?.pathComponents.count ?? _rootDepth)
+            return _current.pathComponents.count - _rootDepth
         }
 
         override func skipDescendants() {
@@ -733,8 +734,7 @@ extension FileManager.NSPathDirectoryEnumerator {
             return nil
         }
 
-        var relativePath = UnsafeMutableBufferPointer<WCHAR>.allocate(capacity: Int(MAX_PATH))
-        defer { relativePath.deallocate() }
+        var relativePath: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH))
         func withURLCString<Result>(url: URL, _ f: (UnsafePointer<WCHAR>) -> Result?) -> Result? {
             return url.withUnsafeFileSystemRepresentation { fsr in
                 (fsr.flatMap { String(utf8String: $0) })?.withCString(encodedAs: UTF16.self) { f($0) }
@@ -747,9 +747,9 @@ extension FileManager.NSPathDirectoryEnumerator {
                 guard fromAttrs != INVALID_FILE_ATTRIBUTES, toAttrs != INVALID_FILE_ATTRIBUTES else {
                     return false
                 }
-                return PathRelativePathToW(relativePath.baseAddress, pszFrom, fromAttrs, pszTo, toAttrs)
+                return PathRelativePathToW(&relativePath, pszFrom, fromAttrs, pszTo, toAttrs)
             }
-        }) == true, let (path, _) = String.decodeCString(relativePath.baseAddress, as: UTF16.self) else {
+        }) == true, let (path, _) = String.decodeCString(&relativePath, as: UTF16.self) else {
             return nil
         }
         _currentItemPath = path

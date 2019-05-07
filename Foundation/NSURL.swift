@@ -24,14 +24,19 @@ import Glibc
 // NOTE: this represents PLATFORM_PATH_STYLE
 #if os(Windows)
 internal let kCFURLPlatformPathStyle = kCFURLWindowsPathStyle
+let pathSep = "\\"
 #else
 internal let kCFURLPlatformPathStyle = kCFURLPOSIXPathStyle
+let pathSep = "/"
 #endif
 
 private func _standardizedPath(_ path: String) -> String {
     if !path.absolutePath {
         return path._nsObject.standardizingPath
     }
+    #if os(Windows)
+    return String(path.map({$0 == "/" ? "\\" : $0}))
+    #endif
     return path
 }
 
@@ -325,6 +330,7 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
         super.init()
         
         let thePath = _standardizedPath(path)
+        print("Standard: \(thePath)")
         if thePath.length > 0 {
             
             _CFURLInitWithFileSystemPathRelativeToBase(_cfObject, thePath._cfObject, kCFURLPlatformPathStyle, isDir, baseURL?._cfObject)
@@ -335,9 +341,10 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
     
     public convenience init(fileURLWithPath path: String, relativeTo baseURL: URL?) {
         let thePath = _standardizedPath(path)
+        print("CONVENCIENCE no isdir: \(thePath)")
         
         var isDir: ObjCBool = false
-        if thePath.hasSuffix("/") {
+        if thePath.hasSuffix(pathSep) {
             isDir = true
         } else {
             let absolutePath: String
@@ -367,7 +374,8 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
         }
 
         var isDir: ObjCBool = false
-        if thePath.hasSuffix("/") {
+        print("CONVENCIENCE no isdir2: \(thePath)")
+        if thePath.hasSuffix(pathSep) {
             isDir = true
         } else {
             if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) {
@@ -986,7 +994,7 @@ extension NSURL {
         }
 
         let absolutePath: String
-        if selfPath.hasPrefix("/") {
+        if selfPath.absolutePath {
             absolutePath = selfPath
         } else {
             let workingDir = FileManager.default.currentDirectoryPath

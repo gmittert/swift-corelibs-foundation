@@ -743,7 +743,7 @@ class TestFileManager : XCTestCase {
             XCTAssertTrue(entries.contains("item"))
             XCTAssertTrue(entries.contains("item2"))
             XCTAssertTrue(entries.contains("sub"))
-            XCTAssertTrue(entries.contains("sub/item3"))
+            XCTAssertTrue(entries.contains("sub\(pathSep)item3"))
             XCTAssertEqual(fm.subpaths(atPath: path), entries)
         }
         catch {
@@ -841,9 +841,10 @@ class TestFileManager : XCTestCase {
         let srcLink = srcPath + "/testlink"
         let destLink = destPath + "/testlink"
         do {
-            try fm.createSymbolicLink(atPath: srcLink, withDestinationPath: "linkdest")
+            fm.createFile(atPath: "\(srcPath)\(pathSep)linkdest", contents: Data())
+            try fm.createSymbolicLink(atPath: srcLink, withDestinationPath: "\(srcPath)\(pathSep)linkdest")
             try fm.copyItem(atPath: srcLink, toPath: destLink)
-            XCTAssertEqual(try fm.destinationOfSymbolicLink(atPath: destLink), "linkdest")
+            XCTAssertEqual(try fm.destinationOfSymbolicLink(atPath: destLink), "\(srcPath)\(pathSep)linkdest")
         } catch {
             XCTFail("\(error)")
         }
@@ -858,7 +859,7 @@ class TestFileManager : XCTestCase {
 
     func test_linkItemAtPathToPath() {
         let fm = FileManager.default
-        let basePath = NSTemporaryDirectory() + "linkItemAtPathToPath/"
+        let basePath = NSTemporaryDirectory() + "linkItemAtPathToPath\(pathSep)"
         let srcPath = basePath + "testdir\(NSUUID().uuidString)"
         let destPath = basePath + "testdir\(NSUUID().uuidString)"
         defer { try? fm.removeItem(atPath: basePath) }
@@ -922,12 +923,14 @@ class TestFileManager : XCTestCase {
         XCTAssertNil(try? fm.linkItem(atPath: srcPath, toPath: destPath), "Copy overwrites a file/folder that already exists")
 
         // Test 'linking' a symlink, which actually does a copy
-        let srcLink = srcPath + "/testlink"
-        let destLink = destPath + "/testlink"
+        let srcLink = srcPath + "\(pathSep)testlink"
+        let destLink = destPath + "\(pathSep)testlink"
+        let target = "\(basePath)target"
         do {
-            try fm.createSymbolicLink(atPath: srcLink, withDestinationPath: "linkdest")
+            fm.createFile(atPath: target, contents: Data())
+            try fm.createSymbolicLink(atPath: srcLink, withDestinationPath: target)
             try fm.linkItem(atPath: srcLink, toPath: destLink)
-            XCTAssertEqual(try fm.destinationOfSymbolicLink(atPath: destLink), "linkdest")
+            XCTAssertEqual(try fm.destinationOfSymbolicLink(atPath: destLink), target)
         } catch {
             XCTFail("\(error)")
         }

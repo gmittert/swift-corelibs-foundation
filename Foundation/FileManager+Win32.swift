@@ -299,9 +299,59 @@ extension FileManager {
     }
 
     internal func _destinationOfSymbolicLink(atPath path: String) throws -> String {
-        return try _canonicalizedPath(toFileAtPath: path)
+        let handle = path.withCString(encodedAs: UTF16.self) { symlink in
+            CreateFileW(symlink,
+                GENERIC_READ,
+                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                nil,
+                DWORD(OPEN_EXISTING),
+                DWORD(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS),
+                nil)
+        }
+
+        guard handle != INVALID_HANDLE_VALUE else {
+          throw _NSErrorWithWindowsError(GetLastError(), reading: true)
+        }
+        defer { CloseHandle(handle) }
+
+        // Since REPARSE_DATA_BUFFER ends with an arbitrarily long buffer, we
+        // have to manually get the path buffer out of it since binding it to a
+        // type will truncate the path buffer
+        let pathBufferOffset =
+            MemoryLayout<ULONG>.size //ULONG ReparseTag
+            + MemoryLayout<USHORT>.size //ULONG ReparseDataLength
+            + MemoryLayout<USHORT>.size //ULONG Reserved
+            + MemoryLayout<USHORT>.size //ULONG SubstituteNameOffset
+            + MemoryLayout<USHORT>.size //ULONG SubstituteNameLength
+            + MemoryLayout<USHORT>.size //ULONG PrintNameOffset
+            + MemoryLayout<USHORT>.size //ULONG PrintNameLength
+            + MemoryLayout<ULONG>.size //ULONG Flags
+
+        var buff = Array(repeating: 0, count: MemoryLayout<REPARSE_DATA_BUFFER>.size + Int(2 * MAX_PATH))
+
+        return try buff.withUnsafeMutableBytes {
+          var bytesWritten: DWORD = 0
+          guard DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nil, 0,
+              $0.baseAddress, DWORD($0.count), &bytesWritten, nil) else {
+            throw _NSErrorWithWindowsError(GetLastError(), reading: true)
+          }
+
+          let bound = $0.bindMemory(to: REPARSE_DATA_BUFFER.self)
+          guard let reparseDataBuffer = bound.first else {
+            fatalError()
+          }
+
+          let pathBufferPtr = $0.baseAddress! + pathBufferOffset
+          let printNameBytes = Int(reparseDataBuffer.SymbolicLinkReparseBuffer.PrintNameLength)
+          let printNameOffset = Int(reparseDataBuffer.SymbolicLinkReparseBuffer.PrintNameOffset)
+          let printNameBuff = Data(bytes: pathBufferPtr + printNameOffset, count: printNameBytes)
+          guard let printPath = String(data: printNameBuff, encoding: .utf16LittleEndian) else {
+            fatalError()
+          }
+          return printPath
+        }
     }
-    
+
     internal func _canonicalizedPath(toFileAtPath path: String) throws -> String {
         var hFile: HANDLE = INVALID_HANDLE_VALUE
         path.withCString(encodedAs: UTF16.self) { link in

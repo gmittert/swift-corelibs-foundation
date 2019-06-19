@@ -125,7 +125,7 @@ extension String {
 
     internal var isAbsolutePath: Bool {
 #if os(Windows)
-        return !withCString(encodedAs: UTF16.self, PathIsRelativeW)
+        return !((try? FileManager.default._fileSystemRepresentation(withPath: self, PathIsRelativeW)) ?? true)
 #else
         return hasPrefix("~") || hasPrefix("/")
 #endif
@@ -201,7 +201,7 @@ extension NSString {
     
     public var isAbsolutePath: Bool {
 #if os(Windows)
-        return !self._swiftObject.withCString(encodedAs: UTF16.self, PathIsRelativeW)
+        return !((try? FileManager.default._fileSystemRepresentation(withPath: self as String, PathIsRelativeW)) ?? true)
 #else
         return hasPrefix("~") || hasPrefix("/")
 #endif
@@ -658,19 +658,19 @@ public func NSFullUserName() -> String {
 }
 
 internal func _NSCreateTemporaryFile(_ filePath: String) throws -> (Int32, String) {
-    let template = filePath + ".tmp.XXXXXX"
 #if os(Windows)
-    let maxLength: Int = Int(MAX_PATH + 1)
-    var buf: [UInt16] = Array<UInt16>(repeating: 0, count: maxLength)
-    let length = GetTempPathW(DWORD(MAX_PATH), &buf)
+    let maxLength: Int = Int(MAX_PATH)
+    var tempDirBuf: [UInt16] = Array<UInt16>(repeating: 0, count: maxLength)
+    var tempFileBuf: [UInt16] = Array<UInt16>(repeating: 0, count: maxLength)
+    let length = GetTempPathW(DWORD(MAX_PATH), &tempDirBuf)
     precondition(length <= MAX_PATH - 14, "temp path too long")
     guard "SCF".withCString(encodedAs: UTF16.self, {
-      return GetTempFileNameW(buf, $0, 0, &buf) != 0
+      return GetTempFileNameW(tempDirBuf, $0, 0, &tempFileBuf) != 0
     }) else {
       throw _NSErrorWithWindowsError(GetLastError(), reading: false)
     }
-    let pathResult = FileManager.default.string(withFileSystemRepresentation: String(decoding: buf, as: UTF16.self), length: wcslen(buf))
-    guard let h = CreateFileW(buf,
+    let pathResult = String(decodingCString: tempFileBuf, as: UTF16.self)
+    guard let h = CreateFileW(tempFileBuf,
                               GENERIC_READ | DWORD(GENERIC_WRITE),
                               DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
                               nil,
@@ -683,6 +683,7 @@ internal func _NSCreateTemporaryFile(_ filePath: String) throws -> (Int32, Strin
     // Don't close h, fd is transferred ownership
     let fd = _open_osfhandle(intptr_t(bitPattern: h), 0)
 #else
+    let template = filePath + ".tmp.XXXXXX"
     let maxLength = Int(PATH_MAX) + 1
     var buf = [Int8](repeating: 0, count: maxLength)
     let _ = template._nsObject.getFileSystemRepresentation(&buf, maxLength: maxLength)
@@ -696,22 +697,18 @@ internal func _NSCreateTemporaryFile(_ filePath: String) throws -> (Int32, Strin
 }
 
 internal func _NSCleanupTemporaryFile(_ auxFilePath: String, _ filePath: String) throws  {
-#if os(Windows)
-    try auxFilePath.withCString(encodedAs: UTF16.self) { fromPath in
-        try filePath.withCString(encodedAs: UTF16.self) { toPath in
-            let res = CopyFileW(fromPath, toPath, /*bFailIfExists=*/false)
-            try? FileManager.default.removeItem(atPath: auxFilePath)
-            if !res {
-                throw _NSErrorWithWindowsError(GetLastError(), reading: false)
-            }
-        }
-    }
-#else
     try FileManager.default._fileSystemRepresentation(withPath: auxFilePath, andPath: filePath, {
+#if os(Windows)
+        let res = CopyFileW($0, $1, /*bFailIfExists=*/false)
+        try? FileManager.default.removeItem(atPath: auxFilePath)
+        if !res {
+            throw _NSErrorWithWindowsError(GetLastError(), reading: false)
+       }
+#else
         if rename($0, $1) != 0 {
             try? FileManager.default.removeItem(atPath: auxFilePath)
             throw _NSErrorWithErrno(errno, reading: false, path: filePath)
         }
-    })
 #endif
+    })
 }

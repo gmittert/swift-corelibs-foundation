@@ -390,9 +390,11 @@ open class Process: NSObject {
         guard let launchPath = self.executableURL?.path else {
             throw NSError(domain: NSCocoaErrorDomain, code: NSFileNoSuchFileError)
         }
-
 #if os(Windows)
-        var command: [String] = [launchPath]
+        let launchPathFSR = try FileManager.default._fileSystemRepresentation(withPath: launchPath) {
+          return String(decodingCString: $0, as: UTF16.self)
+        }
+        var command: [String] = [launchPathFSR]
         if let arguments = self.arguments {
           command.append(contentsOf: arguments)
         }
@@ -565,7 +567,7 @@ open class Process: NSObject {
         CFRunLoopAddSource(managerThreadRunLoop?._cfRunLoop, source, kCFRunLoopDefaultMode)
 
         try quoteWindowsCommandLine(command).withCString(encodedAs: UTF16.self) { wszCommandLine in
-          try currentDirectoryURL.path.withCString(encodedAs: UTF16.self) { wszCurrentDirectory in
+          try FileManager.default._fileSystemRepresentation(withPath: currentDirectoryURL.path) { wszCurrentDirectory in
             try szEnvironment.withCString(encodedAs: UTF16.self) { wszEnvironment in
               if !CreateProcessW(nil, UnsafeMutablePointer<WCHAR>(mutating: wszCommandLine),
                                  nil, nil, true,

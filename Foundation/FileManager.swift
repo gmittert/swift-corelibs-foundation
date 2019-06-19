@@ -423,7 +423,7 @@ open class FileManager : NSObject {
                     let hiddenAttrs = isHidden
                         ? attrs | DWORD(FILE_ATTRIBUTE_HIDDEN)
                         : attrs & DWORD(bitPattern: ~FILE_ATTRIBUTE_HIDDEN)
-                    guard path.withCString(encodedAs: UTF16.self, { SetFileAttributesW($0, hiddenAttrs) }) else {
+                    guard try _fileSystemRepresentation(withPath: path, { SetFileAttributesW($0, hiddenAttrs) }) else {
                         fatalError("Couldn't set \(path) to be hidden")
                     }
 #else
@@ -1258,10 +1258,13 @@ public struct FileAttributeType : RawRepresentable, Equatable, Hashable {
             self = .typeCharacterSpecial
         } else if attributes.dwFileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) == DWORD(FILE_ATTRIBUTE_REPARSE_POINT) {
             // A reparse point may or may not actually be a symbolic link, we need to read the reparse tag
-            let handle = path.withCString(encodedAs: UTF16.self) {
-                CreateFileW($0, /*dwDesiredAccess=*/DWORD(0), DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE), /*lpSecurityAttributes=*/nil,
-                            DWORD(OPEN_EXISTING), DWORD(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS), /*hTemplateFile=*/nil)
-            }
+            let handle = try? FileManager.default._fileSystemRepresentation(withPath: path) {
+                CreateFileW($0, /*dwDesiredAccess=*/DWORD(0),
+                            DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE),
+                            /*lpSecurityAttributes=*/nil, DWORD(OPEN_EXISTING),
+                            DWORD(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS),
+                            /*hTemplateFile=*/nil)
+            } ?? INVALID_HANDLE_VALUE
             guard handle != INVALID_HANDLE_VALUE else {
                 self = .typeUnknown
                 return

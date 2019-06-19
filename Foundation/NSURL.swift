@@ -964,7 +964,7 @@ extension NSURL {
     
     open func appendingPathComponent(_ pathComponent: String) -> URL? {
         var result : URL? = appendingPathComponent(pathComponent, isDirectory: false)
-        if !pathComponent.hasSuffix("/") && isFileURL {
+        if !validPathSeps.contains(where: { pathComponent.hasSuffix(String($0)) }) && isFileURL {
             if let urlWithoutDirectory = result {
                 var isDir: ObjCBool = false
                 if FileManager.default.fileExists(atPath: urlWithoutDirectory.path, isDirectory: &isDir) && isDir.boolValue {

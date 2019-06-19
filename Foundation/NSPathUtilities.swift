@@ -344,9 +344,23 @@ extension NSString {
     }
     
     public var standardizingPath: String {
+#if os(Windows)
+        // Convert to a posix style '/' separated path
+        var converted = self as String
+        if converted.isAbsolutePath {
+            if converted.starts(with: "\\\\?\\") {
+              converted.removeFirst(3)
+            } else if !(converted.starts(with: "/") || converted.starts(with: "\\")) {
+              converted = "/" + converted
+            }
+        }
+        converted = String(converted.map({ $0 == "\\" ? "/" : $0 }))
+        let expanded = converted.expandingTildeInPath
+#else
         let expanded = expandingTildeInPath
+#endif
         var resolved = expanded._bridgeToObjectiveC().resolvingSymlinksInPath
-        
+
         let automount = "/var/automount"
         resolved = resolved._tryToRemovePathPrefix(automount) ?? resolved
         return resolved
@@ -550,12 +564,60 @@ extension NSString {
     }
     
     public func getFileSystemRepresentation(_ cname: UnsafeMutablePointer<Int8>, maxLength max: Int) -> Bool {
+#if os(Windows)
+        let fsr = UnsafeMutablePointer<WCHAR>.allocate(capacity: max)
+        defer{ fsr.deallocate() }
+        guard _getFileSystemRepresentation(fsr, maxLength: max) else { return false }
+        let str = String(decodingCString: fsr, as: UTF16.self)
+        return str.withCString() {
+            let chars = strnlen_s($0, max)
+            guard chars < max else {
+                return false
+            }
+            cname.assign(from: $0, count: chars + 1)
+            return true
+        }
+#else
         guard self.length > 0 else {
             return false
         }
-        
         return CFStringGetFileSystemRepresentation(self._cfObject, cname, max)
+#endif
     }
+
+#if os(Windows)
+    public func _getFileSystemRepresentation(_ cname: UnsafeMutablePointer<foundation_char_t>, maxLength max: Int) -> Bool {
+        guard self.length > 0 else {
+            return false
+        }
+
+        var fsr = self._swiftObject
+        let idx = fsr.startIndex
+        // If we have an rfc 8089 style path /[drive-letter]:/....., drop the
+        // leading /, otherwise, a leading slash indicates a rooted path on the
+        // drive for the current working directory
+        if fsr.count >= 3 && fsr[idx] == "/" && fsr[fsr.index(after: idx)].isLetter && fsr[fsr.index(idx, offsetBy: 2)] == ":" {
+            fsr.removeFirst()
+        }
+
+        // Drop trailing slashes unless it follows a drive letter
+        while
+            fsr.count > 1
+            && (fsr[fsr.index(before: fsr.endIndex)] == "\\" || fsr[fsr.index(before: fsr.endIndex)] == "/")
+            && !(fsr.count == 3 && fsr[fsr.index(fsr.endIndex, offsetBy: -2)] == ":") {
+            fsr.removeLast()
+        }
+
+        return fsr.withCString(encodedAs: UTF16.self) {
+            let wchars = wcsnlen_s($0, max)
+            guard wchars < max else {
+                return false
+            }
+            cname.assign(from: $0, count: wchars + 1)
+            return true
+        }
+    }
+#endif
 
 }
 

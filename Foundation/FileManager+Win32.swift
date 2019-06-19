@@ -648,8 +648,8 @@ extension FileManager {
         NSUnimplemented()
     }
 
-    internal func _lstatFile(atPath path: String, withFileSystemRepresentation fsRep: UnsafePointer<Int8>? = nil) throws -> stat {
-        let _fsRep: UnsafePointer<Int8>
+    internal func _lstatFile(atPath path: String, withFileSystemRepresentation fsRep: UnsafePointer<foundation_char_t>? = nil) throws -> stat {
+        let _fsRep: UnsafePointer<foundation_char_t>
         if fsRep == nil {
             _fsRep = try __fileSystemRepresentation(withPath: path)
         } else {
@@ -661,15 +661,13 @@ extension FileManager {
         }
 
         var statInfo = stat()
-        let h = path.withCString(encodedAs: UTF16.self) {
-            CreateFileW(/*lpFileName=*/$0,
-                        /*dwDesiredAccess=*/DWORD(0),
-                        /*dwShareMode=*/DWORD(FILE_SHARE_READ),
-                        /*lpSecurityAttributes=*/nil,
-                        /*dwCreationDisposition=*/DWORD(OPEN_EXISTING),
-                        /*dwFlagsAndAttributes=*/DWORD(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS),
-                        /*hTemplateFile=*/nil)
-        }
+        let h = CreateFileW(/*lpFileName=*/_fsRep,
+                            /*dwDesiredAccess=*/DWORD(0),
+                            /*dwShareMode=*/DWORD(FILE_SHARE_READ),
+                            /*lpSecurityAttributes=*/nil,
+                            /*dwCreationDisposition=*/DWORD(OPEN_EXISTING),
+                            /*dwFlagsAndAttributes=*/DWORD(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS),
+                            /*hTemplateFile=*/nil)
         if h == INVALID_HANDLE_VALUE {
             throw _windowsErrorToNSError(error: GetLastError(), paths: [path], reading: false)
         }
@@ -713,34 +711,22 @@ extension FileManager {
     }
 
     internal func _appendSymlinkDestination(_ dest: String, toPath: String) -> String {
-        var isAbsolutePath: Bool = false
-        dest.withCString(encodedAs: UTF16.self) {
-            isAbsolutePath = !PathIsRelativeW($0)
-        }
-
-        if isAbsolutePath {
-            return dest
-        }
+        if dest.isAbsolutePath { return dest }
         let temp = toPath._bridgeToObjectiveC().deletingLastPathComponent
         return temp._bridgeToObjectiveC().appendingPathComponent(dest)
     }
 
     internal func _updateTimes(atPath path: String,
-                               withFileSystemRepresentation fsr: UnsafePointer<Int8>,
+                               withFileSystemRepresentation fsr: UnsafePointer<foundation_char_t>,
                                creationTime: Date? = nil,
                                accessTime: Date? = nil,
                                modificationTime: Date? = nil) throws {
       let stat = try _lstatFile(atPath: path, withFileSystemRepresentation: fsr)
 
-      var atime: FILETIME =
-          FILETIME(from: time_t((accessTime ?? stat.lastAccessDate).timeIntervalSince1970))
-      var mtime: FILETIME =
-          FILETIME(from: time_t((modificationTime ?? stat.lastModificationDate).timeIntervalSince1970))
+      var atime = FILETIME(from: time_t((accessTime ?? stat.lastAccessDate).timeIntervalSince1970))
+      var mtime = FILETIME(from: time_t((modificationTime ?? stat.lastModificationDate).timeIntervalSince1970))
 
-      let hFile: HANDLE = String(utf8String: fsr)!.withCString(encodedAs: UTF16.self) {
-        CreateFileW($0, DWORD(GENERIC_WRITE), DWORD(FILE_SHARE_WRITE),
-                    nil, DWORD(OPEN_EXISTING), 0, nil)
-      }
+      let hFile = CreateFileW(fsr, DWORD(GENERIC_WRITE), DWORD(FILE_SHARE_WRITE), nil, DWORD(OPEN_EXISTING), 0, nil)
       if hFile == INVALID_HANDLE_VALUE {
           throw _windowsErrorToNSError(error: GetLastError(), paths: [path], reading: true)
       }

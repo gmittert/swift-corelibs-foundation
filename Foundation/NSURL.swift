@@ -29,10 +29,14 @@ internal let kCFURLPlatformPathStyle = kCFURLPOSIXPathStyle
 #endif
 
 private func _standardizedPath(_ path: String) -> String {
+#if os(Windows)
+    return path._nsObject.standardizingPath
+#else
     if !path.isAbsolutePath {
         return path._nsObject.standardizingPath
     }
     return path
+#endif
 }
 
 internal func _pathComponents(_ path: String?) -> [String]? {
@@ -360,12 +364,15 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
     public init(fileURLWithPath path: String) {
         let thePath: String
         let pathString = NSString(string: path)
-        if !pathString.isAbsolutePath {
-            thePath = pathString.standardizingPath
-        } else {
+#if os(Windows)
+        thePath = pathString.standardizingPath
+#else
+        if pathString.isAbsolutePath {
             thePath = path
+        } else {
+            thePath = pathString.standardizingPath
         }
-
+#endif
         var isDir: ObjCBool = false
         if thePath.hasSuffix("/") {
             isDir = true
@@ -548,7 +555,7 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
     
     open var path: String? {
         let absURL = CFURLCopyAbsoluteURL(_cfObject)
-        return CFURLCopyFileSystemPath(absURL, kCFURLPlatformPathStyle)?._swiftObject
+        return CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle)?._swiftObject
     }
     
     open var fragment: String? {
@@ -565,7 +572,7 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
     
     // The same as path if baseURL is nil
     open var relativePath: String? {
-        return CFURLCopyFileSystemPath(_cfObject, kCFURLPlatformPathStyle)?._swiftObject
+        return CFURLCopyFileSystemPath(_cfObject, kCFURLPOSIXPathStyle)?._swiftObject
     }
     
     /* Determines if a given URL string's path represents a directory (i.e. the path component in the URL string ends with a '/' character). This does not check the resource the URL refers to.

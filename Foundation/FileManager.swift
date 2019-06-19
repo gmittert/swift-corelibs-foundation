@@ -434,7 +434,7 @@ open class FileManager : NSObject {
                     let hiddenAttrs = isHidden
                         ? attrs | DWORD(FILE_ATTRIBUTE_HIDDEN)
                         : attrs & DWORD(bitPattern: ~FILE_ATTRIBUTE_HIDDEN)
-                    guard path.withCString(encodedAs: UTF16.self, { SetFileAttributesW($0, hiddenAttrs) }) else {
+                    guard try _fileSystemRepresentation(withPath: path, { SetFileAttributesW($0, hiddenAttrs) }) else {
                         fatalError("Couldn't set \(path) to be hidden")
                     }
 #else
@@ -1263,7 +1263,7 @@ public struct FileAttributeType : RawRepresentable, Equatable, Hashable {
         self = .typeCharacterSpecial
       } else if attributes.dwFileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) == DWORD(FILE_ATTRIBUTE_REPARSE_POINT) {
         // A reparse point may or may not actually be a symbolic link, we need to read the reparse tag
-        let fileHandle = path.withCString(encodedAs: UTF16.self) {
+        let fileHandle = try? FileManager.default._fileSystemRepresentation(withPath: path) {
           CreateFileW(/*lpFileName=*/$0,
                       /*dwDesiredAccess=*/DWORD(0),
                       /*dwShareMode=*/DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE),
@@ -1271,16 +1271,20 @@ public struct FileAttributeType : RawRepresentable, Equatable, Hashable {
                       /*dwCreationDisposition=*/DWORD(OPEN_EXISTING),
                       /*dwFlagsAndAttributes=*/DWORD(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS),
                       /*hTemplateFile=*/nil)
+        } ?? INVALID_HANDLE_VALUE
+        guard fileHandle != INVALID_HANDLE_VALUE else {
+            self = .typeUnknown
+            return
         }
         defer { CloseHandle(fileHandle) }
         var tagInfo = FILE_ATTRIBUTE_TAG_INFO()
         guard GetFileInformationByHandleEx(fileHandle, FileAttributeTagInfo, &tagInfo, DWORD(MemoryLayout<FILE_ATTRIBUTE_TAG_INFO>.size)) else {
-          self = .typeUnknown
-          return
+            self = .typeUnknown
+            return
         }
         self = tagInfo.ReparseTag == IO_REPARSE_TAG_SYMLINK ? .typeSymbolicLink : .typeRegular
       } else {
-        self = .typeRegular
+          self = .typeRegular
       }
     }
 #else

@@ -427,7 +427,9 @@ open class FileHandle : NSObject {
     }
 
     internal convenience init?(path: String, flags: Int32, createMode: Int) {
-      let fd = _CFOpenFileWithMode(path, flags, mode_t(createMode))
+      let fsr = FileManager.default.fileSystemRepresentation(withPath: path)
+      defer { fsr.deallocate() }
+      let fd = _CFOpenFileWithMode(fsr, flags, mode_t(createMode))
       guard fd > 0 else { return nil }
       self.init(fileDescriptor: fd, closeOnDealloc: true)
       if _handle == INVALID_HANDLE_VALUE { return nil }
@@ -453,14 +455,7 @@ open class FileHandle : NSObject {
 #endif
 
     internal convenience init?(fileSystemRepresentation: UnsafePointer<Int8>, flags: Int32, createMode: Int) {
-#if os(Windows)
-        var fd: Int32 = -1
-        if let path = String(cString: fileSystemRepresentation).cString(using: .utf16) {
-            fd = _CFOpenFileWithMode(path, flags, mode_t(createMode))
-        }
-#else
         let fd = _CFOpenFileWithMode(fileSystemRepresentation, flags, mode_t(createMode))
-#endif
         guard fd > 0 else { return nil }
         self.init(fileDescriptor: fd, closeOnDealloc: true)
     }

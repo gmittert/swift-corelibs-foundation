@@ -248,7 +248,15 @@ class TestURL : XCTestCase {
             default:
                 XCTFail()
             }
-            if title == "NSURLWithString-parse-ambiguous-url-001" {
+#if os(Windows)
+            // On Windows, pipes are valid charcters which can be used
+            // to replace a ':'. See RFC 8089 Section E.2.2 for
+            // details.
+            let otherPlatformPipeTest = "NSURLWithString-parse-absolute-escape-006"
+#else
+            let otherPlatformPipeTest = "NSURLWithString-parse-absolute-escape-006-Windows"
+#endif
+            if title == "NSURLWithString-parse-ambiguous-url-001" || title == otherPlatformPipeTest {
                 // TODO: Fix this test
             } else {
                 if let url = url {

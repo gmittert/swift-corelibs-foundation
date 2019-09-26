@@ -38,6 +38,7 @@ find_package(LibXml2 REQUIRED)
 
 include(SwiftSupport)
 include(GNUInstallDirs)
+include(XCTest)
 
 string(TOLOWER ${CMAKE_SYSTEM_NAME} swift_os)
 get_swift_host_arch(swift_arch)
@@ -635,21 +636,7 @@ if(ENABLE_TESTING)
                      COMMAND
                        ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/xdgTestHelper${CMAKE_EXECUTABLE_SUFFIX} ${CMAKE_CURRENT_BINARY_DIR}/TestFoundation/xdgTestHelper${CMAKE_EXECUTABLE_SUFFIX}
                      DEPENDS
-                       TestFoundation
                        xdgTestHelper)
-  add_test(NAME
-             TestFoundation
-           COMMAND
-             ${CMAKE_CURRENT_BINARY_DIR}/TestFoundation/TestFoundation
-           WORKING_DIRECTORY
-             ${CMAKE_CURRENT_BINARY_DIR}/TestFoundation)
-  set_tests_properties(TestFoundation
-                       PROPERTIES
-                         ENVIRONMENT
-                           LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}:${FOUNDATION_PATH_TO_XCTEST_BUILD}:${FOUNDATION_PATH_TO_LIBDISPATCH_BUILD}:${FOUNDATION_PATH_TO_LIBDISPATCH_BUILD}/src
-                         DEPENDS
-                         ${CMAKE_CURRENT_BINARY_DIR}/TestFoundation/xdgTestHelper${CMAKE_EXECUTABLE_SUFFIX})
-
   add_custom_command(TARGET TestFoundation
                      POST_BUILD
                      BYPRODUCTS
@@ -657,8 +644,16 @@ if(ENABLE_TESTING)
                      COMMAND
                        ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/plutil${CMAKE_EXECUTABLE_SUFFIX} ${CMAKE_CURRENT_BINARY_DIR}/TestFoundation/plutil${CMAKE_EXECUTABLE_SUFFIX}
                      DEPENDS
-                       TestFoundation
                        plutil)
+
+  xctest_discover_tests(TestFoundation
+                        COMMAND
+                          ${CMAKE_CURRENT_BINARY_DIR}/TestFoundation/TestFoundation${CMAKE_EXECUTABLE_SUFFIX}
+                        WORKING_DIRECTORY
+                          ${CMAKE_CURRENT_BINARY_DIR}/TestFoundation
+                        PROPERTIES
+                          ENVIRONMENT
+                            LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}:${FOUNDATION_PATH_TO_XCTEST_BUILD}:${FOUNDATION_PATH_TO_LIBDISPATCH_BUILD}:${FOUNDATION_PATH_TO_LIBDISPATCH_BUILD}/src)
 endif()
 
 if(BUILD_SHARED_LIBS)
